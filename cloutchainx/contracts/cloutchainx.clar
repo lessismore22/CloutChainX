@@ -174,3 +174,64 @@
     like-count: uint
   }
 )
+
+;; Check and update daily activity limits
+(define-private (check-daily-activity-limit (activity-type (string-ascii 10)))
+  (let 
+    (
+      (current-block (get-current-block))
+      (user-activity (get-user-activity tx-sender))
+      (current-daily-activity 
+        (default-to 
+          { post-count: u0, like-count: u0 }
+          (map-get? daily-activity 
+            { 
+              user: tx-sender, 
+              date: current-block 
+            })
+        )
+    )
+    (if (is-eq activity-type "post")
+      (begin
+        (asserts! 
+          (< 
+            (get post-count current-daily-activity) 
+            (var-get daily-post-limit)
+          ) 
+          (err err-daily-limit-exceeded)
+        )
+        (map-set daily-activity 
+          { 
+            user: tx-sender, 
+            date: current-block 
+          }
+          {
+            post-count: (+ (get post-count current-daily-activity) u1),
+            like-count: (get like-count current-daily-activity)
+          }
+        )
+        (ok true)
+      )
+      (begin
+        (asserts! 
+          (< 
+            (get like-count current-daily-activity) 
+            (var-get daily-like-limit)
+          ) 
+          (err err-daily-limit-exceeded)
+        )
+        (map-set daily-activity 
+          { 
+            user: tx-sender, 
+            date: current-block 
+          }
+          {
+            post-count: (get post-count current-daily-activity),
+            like-count: (+ (get like-count current-daily-activity) u1)
+          }
+        )
+        (ok true)
+      )
+    )
+  )
+))
