@@ -6,6 +6,10 @@
 (define-constant err-insufficient-balance (err u101))
 (define-constant err-invalid-reward (err u102))
 (define-constant err-invalid-principal (err u103))
+(define-constant err-already-banned (err u104))
+(define-constant err-not-banned (err u105))
+(define-constant err-daily-limit-exceeded (err u106))
+(define-constant err-content-reported (err u107))
 
 ;; Token for rewards
 (define-fungible-token rewards-token)
@@ -145,3 +149,28 @@
 
 ;; Run initialization on contract deploy
 (initialize)
+
+;; Banned users list
+(define-map banned-users principal bool)
+
+;; Content reporting system
+(define-map reported-content 
+  { 
+    content-id: (string-ascii 100),
+    reporter: principal 
+  }
+  {
+    reasons: (list 3 (string-ascii 50)),
+    report-count: uint
+  }
+)
+(define-map daily-activity 
+  { 
+    user: principal, 
+    date: uint 
+  }
+  {
+    post-count: uint,
+    like-count: uint
+  }
+)
