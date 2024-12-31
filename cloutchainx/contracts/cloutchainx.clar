@@ -174,3 +174,147 @@
     like-count: uint
   }
 )
+
+;; Check and update daily activity limits
+(define-private (check-daily-activity-limit (activity-type (string-ascii 10)))
+  (let  
+    (
+      (current-block (get-current-block))
+      (user-activity (get-user-activity tx-sender))
+      (current-daily-activity   
+        (default-to 
+          { post-count: u0, like-count: u0 }
+          (map-get? daily-activity 
+            { 
+              user: tx-sender, 
+              date: current-block 
+            })
+        )
+    )
+    (if (is-eq activity-type "post")
+      (begin
+        (asserts! 
+          (< 
+            (get post-count current-daily-activity) 
+            (var-get daily-post-limit)
+          ) 
+          (err err-daily-limit-exceeded)
+        )
+        (map-set daily-activity 
+          { 
+            user: tx-sender, 
+            date: current-block 
+          }
+          {
+            post-count: (+ (get post-count current-daily-activity) u1),
+            like-count: (get like-count current-daily-activity)
+          }
+        )
+        (ok true)
+      )
+      (begin
+        (asserts! 
+          (< 
+            (get like-count current-daily-activity) 
+            (var-get daily-like-limit)
+          ) 
+          (err err-daily-limit-exceeded)
+        )
+        (map-set daily-activity 
+          { 
+            user: tx-sender, 
+            date: current-block 
+          }
+          {
+            post-count: (get post-count current-daily-activity),
+            like-count: (+ (get like-count current-daily-activity) u1)
+          }
+        )
+        (ok true)
+      )
+    )
+  )
+  ;; New error codes
+(define-constant err-invalid-comment (err u200))
+(define-constant err-invalid-tag (err u201))
+(define-constant err-invalid-share (err u202))
+(define-constant err-insufficient-level (err u203))
+
+;; Store comments data
+(define-map comments
+  { post-id: uint, commenter: principal }
+  {
+    content: (string-ascii 280),
+    timestamp: uint,
+    likes: uint
+  }
+)
+
+;; Track user achievements
+(define-map achievements
+  principal
+  {
+    badges: (list 10 (string-ascii 50)),
+    level: uint,
+    experience: uint
+  }
+)
+;; Store content categories/tags
+(define-map content-tags
+  uint
+  (list 5 (string-ascii 20))
+)
+
+;; Track content sharing
+(define-map shared-content
+  { post-id: uint, sharer: principal }
+  {
+    original-poster: principal,
+    share-timestamp: uint,
+    reach: uint
+  }
+)
+;; Record a comment
+(define-public (add-comment (post-id uint) (content (string-ascii 280)))
+  (let
+    (
+      (current-block (get-block-height))
+    )
+    (map-set comments
+      { post-id: post-id, commenter: tx-sender }
+      {
+        content: content,
+        timestamp: current-block,
+        likes: u0
+      }
+    )
+    (ok true)
+  )
+)
+
+;; Add tags to content
+(define-public (tag-content (post-id uint) (tags (list 5 (string-ascii 20))))
+  (begin
+    (map-set content-tags post-id tags)
+    (ok true)
+  )
+)
+
+;; Share content
+(define-public (share-post (post-id uint) (original-poster principal))
+  (let
+    (
+      (current-block (get-block-height))
+    )
+    (map-set shared-content
+      { post-id: post-id, sharer: tx-sender }
+      {
+        original-poster: original-poster,
+        share-timestamp: current-block,
+        reach: u0
+      }
+    )
+    (ok true)
+  )
+)
+))
