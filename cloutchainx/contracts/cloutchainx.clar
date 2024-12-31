@@ -274,5 +274,47 @@
     reach: uint
   }
 )
+;; Record a comment
+(define-public (add-comment (post-id uint) (content (string-ascii 280)))
+  (let
+    (
+      (current-block (get-block-height))
+    )
+    (map-set comments
+      { post-id: post-id, commenter: tx-sender }
+      {
+        content: content,
+        timestamp: current-block,
+        likes: u0
+      }
+    )
+    (ok true)
+  )
+)
 
+;; Add tags to content
+(define-public (tag-content (post-id uint) (tags (list 5 (string-ascii 20))))
+  (begin
+    (map-set content-tags post-id tags)
+    (ok true)
+  )
+)
+
+;; Share content
+(define-public (share-post (post-id uint) (original-poster principal))
+  (let
+    (
+      (current-block (get-block-height))
+    )
+    (map-set shared-content
+      { post-id: post-id, sharer: tx-sender }
+      {
+        original-poster: original-poster,
+        share-timestamp: current-block,
+        reach: u0
+      }
+    )
+    (ok true)
+  )
+)
 ))
