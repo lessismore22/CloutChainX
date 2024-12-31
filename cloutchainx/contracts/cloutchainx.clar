@@ -177,11 +177,11 @@
 
 ;; Check and update daily activity limits
 (define-private (check-daily-activity-limit (activity-type (string-ascii 10)))
-  (let 
+  (let  
     (
       (current-block (get-current-block))
       (user-activity (get-user-activity tx-sender))
-      (current-daily-activity 
+      (current-daily-activity   
         (default-to 
           { post-count: u0, like-count: u0 }
           (map-get? daily-activity 
@@ -234,4 +234,45 @@
       )
     )
   )
+  ;; New error codes
+(define-constant err-invalid-comment (err u200))
+(define-constant err-invalid-tag (err u201))
+(define-constant err-invalid-share (err u202))
+(define-constant err-insufficient-level (err u203))
+
+;; Store comments data
+(define-map comments
+  { post-id: uint, commenter: principal }
+  {
+    content: (string-ascii 280),
+    timestamp: uint,
+    likes: uint
+  }
+)
+
+;; Track user achievements
+(define-map achievements
+  principal
+  {
+    badges: (list 10 (string-ascii 50)),
+    level: uint,
+    experience: uint
+  }
+)
+;; Store content categories/tags
+(define-map content-tags
+  uint
+  (list 5 (string-ascii 20))
+)
+
+;; Track content sharing
+(define-map shared-content
+  { post-id: uint, sharer: principal }
+  {
+    original-poster: principal,
+    share-timestamp: uint,
+    reach: uint
+  }
+)
+
 ))
