@@ -317,4 +317,38 @@
     (ok true)
   )
 )
+;; Award achievement badge
+(define-public (award-badge (user principal) (badge (string-ascii 50)))
+  (let
+    (
+      (current-achievements (default-to 
+        { badges: (list), level: u0, experience: u0 }
+        (map-get? achievements user)))
+    )
+    (map-set achievements
+      user
+      (merge current-achievements {
+        badges: (unwrap! (as-max-len? (append (get badges current-achievements) badge) u10) (err u1))
+      })
+    )
+    (ok true)
+  )
+)
+
+;; Read-only functions for new features
+(define-read-only (get-post-comments (post-id uint))
+  (map-get? comments { post-id: post-id, commenter: tx-sender })
+)
+
+(define-read-only (get-post-tags (post-id uint))
+  (map-get? content-tags post-id)
+)
+
+(define-read-only (get-user-achievements (user principal))
+  (map-get? achievements user)
+)
+
+(define-read-only (get-share-stats (post-id uint))
+  (map-get? shared-content { post-id: post-id, sharer: tx-sender })
+)
 ))
