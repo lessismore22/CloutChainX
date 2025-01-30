@@ -177,7 +177,7 @@
 
 ;; Check and update daily activity limits
 (define-private (check-daily-activity-limit (activity-type (string-ascii 10)))
-  (let  
+  (let 
     (
       (current-block (get-current-block))
       (user-activity (get-user-activity tx-sender))
@@ -352,3 +352,116 @@
   (map-get? shared-content { post-id: post-id, sharer: tx-sender })
 )
 ))
+;; Track votes on reported content
+(define-map content-votes
+  { content-id: (string-ascii 100) }
+  {
+    upvotes: uint,
+    downvotes: uint
+  }
+)
+
+;; Threshold for content removal
+(define-data-var content-removal-threshold uint u10)
+
+;; Vote on reported content
+(define-public (vote-on-content (content-id (string-ascii 100)) (vote (string-ascii 10)))
+  (begin
+    ;; Ensure the content is reported
+    (asserts! (is-some (map-get? reported-content { content-id: content-id, reporter: tx-sender })) (err err-content-reported))
+    
+    ;; Update vote counts
+    (let 
+      (
+        (current-votes (default-to { upvotes: u0, downvotes: u0 } (map-get? content-votes { content-id: content-id })))
+      )
+      (if (is-eq vote "upvote")
+        (map-set content-votes 
+          { content-id: content-id }
+          { 
+            upvotes: (+ (get upvotes current-votes) u1),
+            downvotes: (get downvotes current-votes)
+          }
+        )
+        (map-set content-votes 
+          { content-id: content-id }
+          { 
+            upvotes: (get upvotes current-votes),
+            downvotes: (+ (get downvotes current-votes) u1)
+          }
+        )
+      )
+    )
+    (ok true)
+  )
+)
+
+;; Check if content should be removed
+(define-public (check-content-removal (content-id (string-ascii 100)))
+  (let 
+    (
+      (current-votes (default-to { upvotes: u0, downvotes: u0 } (map-get? content-votes { content-id: content-id })))
+    )
+    (if (>= (get downvotes current-votes) (var-get content-removal-threshold))
+      (ok true) ;; Content should be removed
+      (ok false) ;; Content should not be removed
+    )
+  )
+
+;; Track user levels and experience
+(define-map user-levels
+  principal
+  {
+    level: uint,
+    experience: uint
+  }
+)
+
+;; XP required for each level
+(define-data-var xp-per-level uint u100)
+
+;; Award XP for user activity
+(define-private (award-xp (user principal) (xp uint))
+  (let 
+    (
+      (current-level (default-to { level: u1, experience: u0 } (map-get? user-levels user)))
+      (new-experience (+ (get experience current-level) xp))
+      (new-level (if (>= new-experience (var-get xp-per-level))
+                   (+ (get level current-level) u1)
+                   (get level current-level)
+                 ))
+    )
+    (map-set user-levels 
+      user
+      {
+        level: new-level,
+        experience: new-experience
+      }
+    )
+    (ok true)
+  )
+)
+
+;; Update XP in existing functions
+;; Example: Add to `record-post`
+(define-public (record-post)
+  (let 
+    (
+      (current-activity (get-user-activity tx-sender))
+      (new-posts (+ (get posts current-activity) u1))
+      (reward-points (+ (get total-reward-points current-activity) (var-get post-reward-rate)))
+    )
+    (map-set user-activity 
+      { user: tx-sender }
+      {
+        posts: new-posts,
+        likes-given: (get likes-given current-activity),
+        likes-received: (get likes-received current-activity),
+        total-reward-points: reward-points
+      }
+    )
+    (try! (award-xp tx-sender u10)) ;; Award 10 XP for posting
+    (ok true)
+  )
+)
+)
