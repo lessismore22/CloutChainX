@@ -464,4 +464,33 @@
     (ok true)
   )
 )
+;; Track leaderboard rankings
+(define-map leaderboard
+  uint ;; Rank
+  principal ;; User
+)
+
+;; Update leaderboard
+(define-private (update-leaderboard (user principal))
+  (let 
+    (
+      (user-stats (get-user-activity user))
+      (total-points (get total-reward-points user-stats))
+    )
+    ;; Logic to update leaderboard based on total points
+    ;; (This can be expanded with more complex ranking logic)
+    (map-set leaderboard total-points user)
+    (ok true)
+  )
+)
+
+;; Get top users
+(define-read-only (get-top-users (limit uint))
+  (let 
+    (
+      (top-users (map-get? leaderboard limit))
+    )
+    top-users
+  )
+)
 )
