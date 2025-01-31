@@ -493,4 +493,90 @@
     top-users
   )
 )
+;; Boost content
+(define-public (boost-content (post-id uint) (amount uint))
+  (begin
+    ;; Deduct tokens from user
+    (try! (ft-transfer? rewards-token amount tx-sender contract-owner))
+    
+    ;; Increase reach of the content
+    (let 
+      (
+        (current-stats (default-to { reach: u0 } (map-get? shared-content { post-id: post-id, sharer: tx-sender })))
+      )
+      (map-set shared-content 
+        { post-id: post-id, sharer: tx-sender }
+        {
+          original-poster: (get original-poster current-stats),
+          share-timestamp: (get share-timestamp current-stats),
+          reach: (+ (get reach current-stats) amount)
+        }
+      )
+    )
+    (ok true)
+  )
+)
+;; Track challenges
+(define-map challenges
+  uint ;; Challenge ID
+  {
+    description: (string-ascii 100),
+    reward: uint,
+    start-block: uint,
+    end-block: uint
+  }
+)
+
+;; Track user progress in challenges
+(define-map user-challenges
+  { user: principal, challenge-id: uint }
+  {
+    progress: uint,
+    completed: bool
+  }
+)
+;; Create a new challenge
+(define-public (create-challenge (description (string-ascii 100)) (reward uint) (duration uint))
+  (begin
+    (asserts! (is-eq tx-sender contract-owner) (err err-owner-only))
+    (let 
+      (
+        (challenge-id (+ (map-length challenges) u1))
+        (start-block (get-block-height))
+        (end-block (+ start-block duration))
+      )
+      (map-set challenges 
+        challenge-id
+        {
+          description: description,
+          reward: reward,
+          start-block: start-block,
+          end-block: end-block
+        }
+      )
+      (ok challenge-id)
+    )
+  )
+)
+
+;; Participate in a challenge
+(define-public (participate-in-challenge (challenge-id uint))
+  (begin
+    (let 
+      (
+        (challenge (unwrap! (map-get? challenges challenge-id) (err u1)))
+        (current-block (get-block-height))
+      )
+      (asserts! (and (>= current-block (get start-block challenge)) (<= current-block (get end-block challenge))) (err u2))
+      (map-set user-challenges 
+        { user: tx-sender, challenge-id: challenge-id }
+        {
+          progress: u0,
+          completed: false
+        }
+      )
+      (ok true)
+    )
+  )
+)
 )
