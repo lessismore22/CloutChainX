@@ -580,3 +580,41 @@
   )
 )
 )
+
+
+
+;; Additional error codes
+(define-constant err-invalid-referral (err u300))
+(define-constant err-invalid-streak (err u301))
+(define-constant err-invalid-gift (err u302))
+(define-constant err-invalid-event (err u303))
+(define-constant err-challenge-expired (err u304))
+
+;; Referral system
+(define-map referrals
+  { referrer: principal, referee: principal }
+  {
+    timestamp: uint,
+    reward-claimed: bool
+  }
+)
+
+;; Daily login streaks
+(define-map login-streaks
+  principal
+  {
+    current-streak: uint,
+    longest-streak: uint,
+    last-login-date: uint
+  }
+)
+
+;; Token gifting between users
+(define-map gift-history
+  { sender: principal, receiver: principal }
+  {
+    amount: uint,
+    message: (string-ascii 100),
+    timestamp: uint
+  }
+)
